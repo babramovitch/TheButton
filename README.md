@@ -6,7 +6,7 @@ Never be without the Button again.
 
 There are 2 power management options
 
-1) You can disable the updaing if the screen is off
+1) You can disable the updating if the screen is off
 
 2) You can enable the updating when the screen is off, while you're connected to power.
 
