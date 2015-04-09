@@ -1,6 +1,6 @@
 # TheButton
 
-Watch the Reddit button from your status bar! Set alerts with custom tones.
+Watch the Reddit button from your Android phones status bar! Set alerts with custom tones.
 
 Never be without the Button again.
 
