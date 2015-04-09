@@ -1,0 +1,77 @@
+<resources>
+    <string name="app_name">The Button</string>
+    <string name="cannot_get_socket_link">Could not get connection data</string>
+    <string name="thebutton">The Button</string>
+    <string name="socket_url">https://s3.amazonaws.com/nebulights.com/thebutton.txt</string>
+    <string name="goto_button">Goto Button</string>
+    <string name="close_button">Close</string>
+    <string name="participants">" participants"</string>
+    <string name="connecting">Connecting</string>
+    <string name="disconnected">Disconnected</string>
+    <string name="reddit_thebutton_url">http://www.reddit.com/r/thebutton</string>
+
+    <string-array name="time_images">
+            <item>@drawable/sixty</item>
+            <item>@drawable/fiftynine</item>
+            <item>@drawable/fiftyeight</item>
+            <item>@drawable/fiftyseven</item>
+            <item>@drawable/fiftysix</item>
+            <item>@drawable/fiftyfive</item>
+            <item>@drawable/fiftyfour</item>
+            <item>@drawable/fiftythree</item>
+            <item>@drawable/fiftytwo</item>
+            <item>@drawable/fiftyone</item>
+            <item>@drawable/fifty</item>
+            <item>@drawable/fourtynine</item>
+            <item>@drawable/fourtyeight</item>
+            <item>@drawable/fourtyseven</item>
+            <item>@drawable/fourtysix</item>
+            <item>@drawable/fourtyfive</item>
+            <item>@drawable/fourtyfour</item>
+            <item>@drawable/fourtythree</item>
+            <item>@drawable/fourtytwo</item>
+            <item>@drawable/fourtyone</item>
+            <item>@drawable/fourty</item>
+            <item>@drawable/thirtynine</item>
+            <item>@drawable/thirtyeight</item>
+            <item>@drawable/thirtyseven</item>
+            <item>@drawable/thirtysix</item>
+            <item>@drawable/thirtyfive</item>
+            <item>@drawable/thirtyfour</item>
+            <item>@drawable/thirtythree</item>
+            <item>@drawable/thirtytwo</item>
+            <item>@drawable/thirtyone</item>
+            <item>@drawable/thirty</item>
+            <item>@drawable/twentynine</item>
+            <item>@drawable/twentyeight</item>
+            <item>@drawable/twentyseven</item>
+            <item>@drawable/twentysix</item>
+            <item>@drawable/twentyfive</item>
+            <item>@drawable/twentyfour</item>
+            <item>@drawable/twentythree</item>
+            <item>@drawable/twentytwo</item>
+            <item>@drawable/twentyone</item>
+            <item>@drawable/twenty</item>
+            <item>@drawable/nineteen</item>
+            <item>@drawable/eightteen</item>
+            <item>@drawable/seventeen</item>
+            <item>@drawable/sixteen</item>
+            <item>@drawable/fifteen</item>
+            <item>@drawable/fourteen</item>
+            <item>@drawable/thirteen</item>
+            <item>@drawable/twelve</item>
+            <item>@drawable/eleven</item>
+            <item>@drawable/ten</item>
+            <item>@drawable/nine</item>
+            <item>@drawable/eight</item>
+            <item>@drawable/seven</item>
+            <item>@drawable/six</item>
+            <item>@drawable/five</item>
+            <item>@drawable/four</item>
+            <item>@drawable/three</item>
+            <item>@drawable/two</item>
+            <item>@drawable/one</item>
+            <item>@drawable/zero</item>
+        </string-array>
+
+</resources>
