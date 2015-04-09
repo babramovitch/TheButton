@@ -13,6 +13,7 @@ import android.media.Ringtone;
 import android.media.RingtoneManager;
 import android.net.Uri;
 import android.os.AsyncTask;
+
 import android.support.v4.app.NotificationCompat;
 import android.os.Bundle;
 import android.text.Editable;
@@ -27,7 +28,6 @@ import android.widget.TextView;
 import android.widget.Toast;
 
 import com.crashlytics.android.Crashlytics;
-
 import com.google.gson.JsonObject;
 import com.google.gson.JsonParser;
 
@@ -66,24 +66,26 @@ public class MainActivity extends Activity {
 
     private OkHttpClient client = new OkHttpClient();
 
-    private CheckBox checkBox;
+    private CheckBox disableUpdatesIfScreenOffCheckBox;
+    private CheckBox enableUpdatesWhenPowerConnected;
     private SharedPreferences prefs;
+
+    boolean disableUpdates;
+    boolean enableUpdatesWhenConnectedToPower;
 
     int[] buttonColors;
     int alertInt;
-    private Context context;
 
     Ringtone ringtone;
 
     boolean alertInitiated = false;
+    boolean powerConnected = false;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
 
-        context = this;
-
-        //Crashlytics.start(this);
+        Crashlytics.start(this);
         EventBus.getDefault().register(this);
         setContentView(R.layout.activity_main);
 
@@ -93,7 +95,12 @@ public class MainActivity extends Activity {
         timer = (TextView) findViewById(R.id.timer);
         participants = (TextView) findViewById(R.id.participants);
         timeImages = getResources().obtainTypedArray(R.array.time_images);
-        checkBox = (CheckBox) findViewById(R.id.checkBoxUpdates);
+        disableUpdatesIfScreenOffCheckBox = (CheckBox) findViewById(R.id.checkBoxUpdates);
+        enableUpdatesWhenPowerConnected = (CheckBox) findViewById(R.id.checkBoxEnableUpdatesWhenPowerConnected);
+
+        if (PowerUtil.isConnected(this)) {
+            powerConnected = true;
+        }
 
         boolean foundMusic = prefs.getBoolean("foundMusic", false);
         if (!foundMusic)
@@ -125,13 +132,26 @@ public class MainActivity extends Activity {
             }
         });
 
-        boolean disableUpdates = prefs.getBoolean("disable", true);
+        disableUpdates = prefs.getBoolean("disable", true);
+        enableUpdatesWhenConnectedToPower = prefs.getBoolean("enableUpdatesWhenConnectedToPower", false);
+
+        registerReceiver(screenBroadcast, new IntentFilter(Intent.ACTION_POWER_CONNECTED));
+        registerReceiver(screenBroadcast, new IntentFilter(Intent.ACTION_POWER_DISCONNECTED));
+        registerReceiver(screenBroadcast, new IntentFilter(Intent.ACTION_SCREEN_ON));
+        registerReceiver(screenBroadcast, new IntentFilter(Intent.ACTION_SCREEN_OFF));
 
         if (disableUpdates) {
-            checkBox.setChecked(true);
-            registerReceiver(mybroadcast, new IntentFilter(Intent.ACTION_SCREEN_ON));
-            registerReceiver(mybroadcast, new IntentFilter(Intent.ACTION_SCREEN_OFF));
+            disableUpdatesIfScreenOffCheckBox.setChecked(true);
+
+            if (enableUpdatesWhenConnectedToPower) {
+                enableUpdatesWhenPowerConnected.setChecked(true);
+            }
+
+        } else {
+            enableUpdatesWhenPowerConnected.setVisibility(View.GONE);
+            enableUpdatesWhenPowerConnected.setChecked(false);
         }
+
 
         alertEditText = (EditText) findViewById(R.id.edit_text);
         String savedAlertValue = prefs.getString("alert", "");
@@ -160,19 +180,37 @@ public class MainActivity extends Activity {
             }
         });
 
-        checkBox.setOnCheckedChangeListener(new CompoundButton.OnCheckedChangeListener() {
-                                                @Override
-                                                public void onCheckedChanged(CompoundButton buttonView, boolean isChecked) {
-                                                    if (isChecked) {
-                                                        registerReceiver(mybroadcast, new IntentFilter(Intent.ACTION_SCREEN_ON));
-                                                        registerReceiver(mybroadcast, new IntentFilter(Intent.ACTION_SCREEN_OFF));
-                                                        prefs.edit().putBoolean("disable", true).apply();
-                                                    } else {
-                                                        unregisterReceiver(mybroadcast);
-                                                        prefs.edit().putBoolean("disable", false).apply();
-                                                    }
-                                                }
-                                            }
+        disableUpdatesIfScreenOffCheckBox.setOnCheckedChangeListener(new CompoundButton.OnCheckedChangeListener() {
+                                                                         @Override
+                                                                         public void onCheckedChanged(CompoundButton buttonView, boolean isChecked) {
+                                                                             if (isChecked) {//
+                                                                                 disableUpdates = true;
+                                                                                 enableUpdatesWhenPowerConnected.setVisibility(View.VISIBLE);
+                                                                                 prefs.edit().putBoolean("disable", true).apply();
+                                                                             } else {
+                                                                                 disableUpdates = false;
+                                                                                 enableUpdatesWhenPowerConnected.setVisibility(View.GONE);
+                                                                                 if (enableUpdatesWhenPowerConnected.isChecked()) {
+                                                                                     enableUpdatesWhenPowerConnected.setChecked(false);
+                                                                                 }
+                                                                                 prefs.edit().putBoolean("disable", false).apply();
+                                                                             }
+                                                                         }
+                                                                     }
+        );
+
+        enableUpdatesWhenPowerConnected.setOnCheckedChangeListener(new CompoundButton.OnCheckedChangeListener() {
+                                                                       @Override
+                                                                       public void onCheckedChanged(CompoundButton buttonView, boolean isChecked) {
+                                                                           if (isChecked) {
+                                                                               enableUpdatesWhenConnectedToPower = true;
+                                                                               prefs.edit().putBoolean("enableUpdatesWhenConnectedToPower", true).apply();
+                                                                           } else {
+                                                                               enableUpdatesWhenConnectedToPower = false;
+                                                                               prefs.edit().putBoolean("enableUpdatesWhenConnectedToPower", false).apply();
+                                                                           }
+                                                                       }
+                                                                   }
         );
 
         setupNotification();
@@ -194,7 +232,6 @@ public class MainActivity extends Activity {
 
         PendingIntent dismissIntent = NotificationActivity.getDismissIntent(notificationId, this);
         PendingIntent gotoButtonIntent = NotificationActivity.gotoButton(this);
-
 
 
         notificationBuilder =
@@ -336,21 +373,52 @@ public class MainActivity extends Activity {
         });
     }
 
-    BroadcastReceiver mybroadcast = new BroadcastReceiver() {
+    BroadcastReceiver screenBroadcast = new BroadcastReceiver() {
 
         @Override
         public void onReceive(Context context, Intent intent) {
 
-            if (intent.getAction().equals(Intent.ACTION_SCREEN_ON)) {
-                shutDownSocket = false;
-                fullShutDown = false;
-                GetWebSocketLink task = new GetWebSocketLink();
-                task.execute(getString(R.string.socket_url));
-            } else if (intent.getAction().equals(Intent.ACTION_SCREEN_OFF)) {
-                EventBus.getDefault().post(new ShutDownEvent(false));
+            switch (intent.getAction()) {
+
+                case Intent.ACTION_SCREEN_ON:
+                    if (disableUpdates) {
+                        shutDownSocket = false;
+                        fullShutDown = false;
+                        GetWebSocketLink task = new GetWebSocketLink();
+                        task.execute(getString(R.string.socket_url));
+                    }
+                    break;
+
+                case Intent.ACTION_SCREEN_OFF:
+                    if (disableUpdates) {
+                        if (!enableUpdatesWhenConnectedToPower || (enableUpdatesWhenConnectedToPower && !powerConnected)) {
+                            EventBus.getDefault().post(new ShutDownEvent(false));
+                        }
+                    }
+                    break;
+
+                case Intent.ACTION_POWER_CONNECTED:
+
+                    if (enableUpdatesWhenConnectedToPower) {
+                        powerConnected = true;
+                    }
+                    break;
+
+                case Intent.ACTION_POWER_DISCONNECTED:
+
+                /*
+                Note: The screen turns itself ON when you disconnect the power, so tracking
+                what happens if it's off and then disconnected isn't required.
+                */
+                    if (enableUpdatesWhenConnectedToPower) {
+                        powerConnected = false;
+                    }
+
+                    break;
             }
         }
     };
+
 
     public void onEvent(InternetConnectedEvent event) {
 
@@ -376,13 +444,26 @@ public class MainActivity extends Activity {
     }
 
     @Override
+    public void onPause() {
+        super.onPause();
+    }
+
+    @Override
+    public void onResume() {
+        super.onResume();
+    }
+
+    @Override
     public void onDestroy() {
         super.onDestroy();
+
+        unregisterReceiver(screenBroadcast);
         EventBus.getDefault().unregister(this);
         notificationManager.cancelAll();
         ringtone = null;
-        if (checkBox.isChecked()) {
-            unregisterReceiver(mybroadcast);
-        }
+
+
+
+
     }
 }
