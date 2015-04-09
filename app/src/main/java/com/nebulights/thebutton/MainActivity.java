@@ -83,7 +83,7 @@ public class MainActivity extends Activity {
 
         context = this;
 
-        Crashlytics.start(this);
+        //Crashlytics.start(this);
         EventBus.getDefault().register(this);
         setContentView(R.layout.activity_main);
 
@@ -195,11 +195,14 @@ public class MainActivity extends Activity {
         PendingIntent dismissIntent = NotificationActivity.getDismissIntent(notificationId, this);
         PendingIntent gotoButtonIntent = NotificationActivity.gotoButton(this);
 
+
+
         notificationBuilder =
                 new NotificationCompat.Builder(this)
                         .addAction(R.drawable.ic_action_web_site, getString(R.string.goto_button), gotoButtonIntent)
                         .addAction(R.drawable.ic_action_cancel, getString(R.string.close_button), dismissIntent)
                         .setSmallIcon(R.drawable.sixty)
+                        .setContentIntent(gotoButtonIntent)
                         .setContentTitle(getString(R.string.thebutton));
 
 
