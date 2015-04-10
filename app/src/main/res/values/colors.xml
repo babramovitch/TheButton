@@ -1,13 +1,9 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
 
+    <color name="background_material_light">#ffeeeeee</color>
 
         <array name="colors">
-
-
-
-
-
             <item>#e50000</item>
             <item>#e59500</item>
             <item>#E5D900</item>

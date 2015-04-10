@@ -1,9 +1,23 @@
 <RelativeLayout xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:tools="http://schemas.android.com/tools" android:layout_width="match_parent"
-    android:layout_height="match_parent" android:paddingLeft="@dimen/activity_horizontal_margin"
-    android:paddingRight="@dimen/activity_horizontal_margin"
-    android:paddingTop="@dimen/activity_vertical_margin"
-    android:paddingBottom="@dimen/activity_vertical_margin" tools:context=".MainActivity">
+    android:layout_height="match_parent"
+    android:paddingBottom="@dimen/activity_vertical_margin"
+    android:background="@color/background_material_light"
+    tools:context=".MainActivity">
+
+
+        <android.support.v7.widget.Toolbar
+            xmlns:app="http://schemas.android.com/apk/res-auto"
+            android:id="@+id/toolbar"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:fitsSystemWindows="true"
+            android:layout_alignParentTop="true"
+            app:theme="@style/ToolBarStyle"
+            >
+
+        </android.support.v7.widget.Toolbar>
+
 
     <TextView android:text="Connecting..." android:layout_width="fill_parent"
         android:layout_height="wrap_content"
@@ -38,18 +52,22 @@
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
         android:text="Keep updates enabled while connected to power"
+        android:textColor="#000000"
         android:id="@+id/checkBoxEnableUpdatesWhenPowerConnected"
         android:layout_above="@+id/textView"
         android:layout_centerHorizontal="true"
+        android:gravity="center"
         />
 
     <CheckBox
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
         android:text="Disable updates while screen is off"
+        android:textColor="#000000"
         android:id="@+id/checkBoxUpdates"
         android:layout_above="@+id/checkBoxEnableUpdatesWhenPowerConnected"
         android:layout_centerHorizontal="true"
+
          />
 
     <!-- <a href="http://icons8.com/web-app/3351/Music">Music icon credits</a> -->
@@ -72,10 +90,11 @@
         android:inputType="number"
         android:maxLength="2"
         android:ems="10"
+
         android:gravity="center_horizontal"
         android:layout_above="@+id/timer"
         android:layout_centerHorizontal="true"
-        android:layout_marginBottom="80dp"
+        android:layout_marginBottom="70dp"
         android:layout="@layout/custom_float_label" />
 
     <ImageView

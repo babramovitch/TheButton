@@ -1,5 +1,6 @@
 package com.nebulights.thebutton;
 
+
 import android.app.Activity;
 import android.app.NotificationManager;
 import android.app.PendingIntent;
@@ -9,6 +10,9 @@ import android.content.Intent;
 import android.content.IntentFilter;
 import android.content.SharedPreferences;
 import android.content.res.TypedArray;
+import android.graphics.Color;
+import android.graphics.drawable.ColorDrawable;
+import android.graphics.drawable.Drawable;
 import android.media.Ringtone;
 import android.media.RingtoneManager;
 import android.net.Uri;
@@ -16,9 +20,13 @@ import android.os.AsyncTask;
 
 import android.support.v4.app.NotificationCompat;
 import android.os.Bundle;
+import android.support.v7.app.ActionBarActivity;
+import android.support.v7.widget.Toolbar;
 import android.text.Editable;
 import android.text.TextWatcher;
 import android.util.Log;
+import android.view.Menu;
+import android.view.MenuItem;
 import android.view.View;
 import android.widget.CheckBox;
 import android.widget.CompoundButton;
@@ -47,7 +55,9 @@ import java.io.IOException;
 import java.net.URI;
 import java.util.Random;
 
-public class MainActivity extends Activity {
+public class MainActivity extends ActionBarActivity {
+
+    private Toolbar toolbar;
 
     private TextView timer;
     private TextView participants;
@@ -59,7 +69,7 @@ public class MainActivity extends Activity {
 
     private int notificationId = new Random().nextInt();
     private TypedArray timeImages;
-    private URI theButton;
+    private URI theButtonURL;
 
     private boolean shutDownSocket = false;
     private boolean fullShutDown = false;
@@ -81,6 +91,8 @@ public class MainActivity extends Activity {
     boolean alertInitiated = false;
     boolean powerConnected = false;
 
+    ImageView musicNoteOne, musicNoteTwo;
+
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
@@ -89,7 +101,18 @@ public class MainActivity extends Activity {
         EventBus.getDefault().register(this);
         setContentView(R.layout.activity_main);
 
+
+        toolbar = (Toolbar) findViewById(R.id.toolbar);
+        toolbar.setTitle("The Button");
+
+        setSupportActionBar(toolbar);
+
         buttonColors = this.getResources().getIntArray(R.array.colors);
+
+        //Set the initial actionbar color to the purple color
+        Drawable colorDrawable = new ColorDrawable(buttonColors[6]);
+        getSupportActionBar().setBackgroundDrawable(colorDrawable);
+
 
         prefs = this.getSharedPreferences("com.nebulights.thebutton", Context.MODE_PRIVATE);
         timer = (TextView) findViewById(R.id.timer);
@@ -116,16 +139,16 @@ public class MainActivity extends Activity {
         }
         ringtone = RingtoneManager.getRingtone(getApplicationContext(), notification);
 
-        ImageView button = (ImageView) findViewById(R.id.imageButton);
-        button.setOnClickListener(new View.OnClickListener() {
+        musicNoteOne = (ImageView) findViewById(R.id.imageButton);
+        musicNoteOne.setOnClickListener(new View.OnClickListener() {
             @Override
             public void onClick(View v) {
                 selectRingTones();
             }
         });
 
-        ImageView button2 = (ImageView) findViewById(R.id.imageButton2);
-        button2.setOnClickListener(new View.OnClickListener() {
+        musicNoteTwo = (ImageView) findViewById(R.id.imageButton2);
+        musicNoteTwo.setOnClickListener(new View.OnClickListener() {
             @Override
             public void onClick(View v) {
                 selectRingTones();
@@ -152,10 +175,13 @@ public class MainActivity extends Activity {
             enableUpdatesWhenPowerConnected.setChecked(false);
         }
 
-
         alertEditText = (EditText) findViewById(R.id.edit_text);
         String savedAlertValue = prefs.getString("alert", "");
+
         alertEditText.setText(savedAlertValue);
+        if (!savedAlertValue.equals("")) {
+            setMusicNoteColors(buttonColors[(alertInt / 10)]);
+        }
 
         if (savedAlertValue.length() > 0) {
             alertInt = Integer.valueOf(savedAlertValue);
@@ -174,8 +200,16 @@ public class MainActivity extends Activity {
                 prefs.edit().putString("alert", s.toString()).apply();
                 if (s.length() > 0) {
                     alertInt = Integer.valueOf(s.toString());
+
+                    if (alertInt <= 60 && alertInt > 0) {
+                        setMusicNoteColors(buttonColors[(alertInt / 10)]);
+                    }else{
+                        setMusicNoteColors(Color.BLACK);
+                    }
+
                 } else {
                     alertInt = -1;
+                    setMusicNoteColors(Color.BLACK);
                 }
             }
         });
@@ -220,6 +254,34 @@ public class MainActivity extends Activity {
 
     }
 
+    @Override
+    public boolean onCreateOptionsMenu(Menu menu) {
+        getMenuInflater().inflate(R.menu.menu_main, menu);
+        return true;
+    }
+
+    public boolean onPrepareOptionsMenu(Menu menu) {
+        return true;
+    }
+
+    @Override
+    public boolean onOptionsItemSelected(MenuItem item) {
+
+        int id = item.getItemId();
+
+        //Launch our settings activity here
+        if (id == R.id.ic_action_settings) {
+            return true;
+        }
+
+        return super.onOptionsItemSelected(item);
+    }
+
+    private void setMusicNoteColors(int color){
+        musicNoteOne.setColorFilter(color);
+        musicNoteTwo.setColorFilter(color);
+    }
+
     private void selectRingTones() {
         Intent intent = new Intent(RingtoneManager.ACTION_RINGTONE_PICKER);
         intent.putExtra(RingtoneManager.EXTRA_RINGTONE_TYPE, RingtoneManager.TYPE_NOTIFICATION);
@@ -248,7 +310,9 @@ public class MainActivity extends Activity {
 
         notificationManager.notify(notificationId, notificationBuilder.build());
 
+
     }
+
 
     private class GetWebSocketLink extends AsyncTask<String, Void, String> {
 
@@ -272,8 +336,14 @@ public class MainActivity extends Activity {
         @Override
         protected void onPostExecute(String result) {
             if (!result.equals("error")) {
-                theButton = URI.create(result);
-                initWebSocket();
+               try {
+                   theButtonURL = URI.create(result);
+                   initWebSocket();
+               }catch(Exception e){
+                   Log.e("TheButton", "Exception creating URI", e);
+                   timer.setText("Error Connecting. Please close the app with back button and try again in 10 seconds. There is a known issue with me updating the websocket link twice daily, and looking into solutions.  If this persits for more than a moment please contact us");
+                   timer.setTextSize(10f);
+               }
             } else {
                 timer.setText(getString(R.string.cannot_get_socket_link));
             }
@@ -301,7 +371,7 @@ public class MainActivity extends Activity {
         //{"type": "ticking", "payload": {"participants_text": "605,765", "tick_mac": "2736490ef88a6bc53b5d6ae57a0caf0684aeee5b", "seconds_left": 58.0, "now_str": "2015-04-06-00-57-00"}}
 
 
-        AsyncHttpClient.getDefaultInstance().websocket(String.valueOf(theButton), "my-protocol", new AsyncHttpClient.WebSocketConnectCallback() {
+        AsyncHttpClient.getDefaultInstance().websocket(String.valueOf(theButtonURL), "my-protocol", new AsyncHttpClient.WebSocketConnectCallback() {
 
             @Override
             public void onCompleted(Exception ex, final WebSocket webSocket) {
@@ -332,12 +402,19 @@ public class MainActivity extends Activity {
                                     timer.setText(time);
 
                                     if (intTime != 0) {
-                                        timer.setTextColor(buttonColors[(intTime / 10)]);
+                                        int color = buttonColors[(intTime / 10)];
+                                        timer.setTextColor(color);
+                                        notificationBuilder.setColor(color);
+                                        Drawable colorDrawable = new ColorDrawable(color);
+                                        getSupportActionBar().setBackgroundDrawable(colorDrawable);
                                     }
 
                                     participants.setText(users + getString(R.string.participants));
                                     notificationBuilder.setContentText(time);
                                     notificationBuilder.setSmallIcon(timeImages.getResourceId(60 - intTime, -1));
+
+                                    //This wasn't working consistently, but this is where I've been testing it.
+                                    //notificationBuilder.setLights(buttonColors[(intTime / 10)], 500, 500);
 
                                     if (!shutDownSocket)
                                         notificationManager.notify(notificationId, notificationBuilder.build());
@@ -461,8 +538,6 @@ public class MainActivity extends Activity {
         EventBus.getDefault().unregister(this);
         notificationManager.cancelAll();
         ringtone = null;
-
-
 
 
     }
