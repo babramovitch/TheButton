@@ -18,6 +18,8 @@ import android.media.RingtoneManager;
 import android.net.Uri;
 import android.os.AsyncTask;
 
+import android.os.Vibrator;
+import android.preference.PreferenceManager;
 import android.support.v4.app.NotificationCompat;
 import android.os.Bundle;
 import android.support.v7.app.ActionBarActivity;
@@ -73,18 +75,21 @@ public class MainActivity extends ActionBarActivity {
 
     private boolean shutDownSocket = false;
     private boolean fullShutDown = false;
+    private boolean screenOn = true;
 
     private OkHttpClient client = new OkHttpClient();
 
     private CheckBox disableUpdatesIfScreenOffCheckBox;
     private CheckBox enableUpdatesWhenPowerConnected;
     private SharedPreferences prefs;
+    SharedPreferences prefsFromSettings;
 
     boolean disableUpdates;
     boolean enableUpdatesWhenConnectedToPower;
 
     int[] buttonColors;
     int alertInt;
+    int actionBarColor;
 
     Ringtone ringtone;
 
@@ -109,9 +114,11 @@ public class MainActivity extends ActionBarActivity {
 
         buttonColors = this.getResources().getIntArray(R.array.colors);
 
-        //Set the initial actionbar color to the purple color
+
         Drawable colorDrawable = new ColorDrawable(buttonColors[6]);
         getSupportActionBar().setBackgroundDrawable(colorDrawable);
+
+        prefsFromSettings = PreferenceManager.getDefaultSharedPreferences(this);
 
 
         prefs = this.getSharedPreferences("com.nebulights.thebutton", Context.MODE_PRIVATE);
@@ -179,12 +186,12 @@ public class MainActivity extends ActionBarActivity {
         String savedAlertValue = prefs.getString("alert", "");
 
         alertEditText.setText(savedAlertValue);
-        if (!savedAlertValue.equals("")) {
-            setMusicNoteColors(buttonColors[(alertInt / 10)]);
-        }
 
         if (savedAlertValue.length() > 0) {
             alertInt = Integer.valueOf(savedAlertValue);
+            if(alertInt <= 60) {
+                setMusicNoteColors(buttonColors[(alertInt / 10)]);
+            }
         } else {
             alertInt = -1;
         }
@@ -271,6 +278,8 @@ public class MainActivity extends ActionBarActivity {
 
         //Launch our settings activity here
         if (id == R.id.ic_action_settings) {
+            Intent myIntent = new Intent(MainActivity.this, SettingsActivity.class);
+            MainActivity.this.startActivity(myIntent);
             return true;
         }
 
@@ -399,22 +408,31 @@ public class MainActivity extends ActionBarActivity {
                             runOnUiThread(new Runnable() {
                                 @Override
                                 public void run() {
-                                    timer.setText(time);
 
+                                    timer.setText(time);
+                                    int color = buttonColors[6];
                                     if (intTime != 0) {
-                                        int color = buttonColors[(intTime / 10)];
+                                        color = buttonColors[(intTime / 10)];
                                         timer.setTextColor(color);
                                         notificationBuilder.setColor(color);
-                                        Drawable colorDrawable = new ColorDrawable(color);
-                                        getSupportActionBar().setBackgroundDrawable(colorDrawable);
+                                        EventBus.getDefault().postSticky(new ActionBarColorEvent(color));
+
                                     }
 
                                     participants.setText(users + getString(R.string.participants));
                                     notificationBuilder.setContentText(time);
                                     notificationBuilder.setSmallIcon(timeImages.getResourceId(60 - intTime, -1));
 
-                                    //This wasn't working consistently, but this is where I've been testing it.
-                                    //notificationBuilder.setLights(buttonColors[(intTime / 10)], 500, 500);
+                                    //Experimental.
+                                    //I cancel the notification since not cancelling it caused
+                                    //notifications from different colors to bleed into each other.
+                                    if(prefsFromSettings.getBoolean("pref_led",false) && !screenOn){
+                                        if(intTime != 0) {
+                                            notificationBuilder.setLights(buttonColors[(intTime / 10)], 500, 1000);
+                                            notificationManager.cancel(notificationId);
+                                        }
+                                    }
+
 
                                     if (!shutDownSocket)
                                         notificationManager.notify(notificationId, notificationBuilder.build());
@@ -427,6 +445,10 @@ public class MainActivity extends ActionBarActivity {
                                         alertInitiated = true;
                                         try {
                                             ringtone.play();
+                                            if(prefsFromSettings.getBoolean("pref_sync",false)) {
+                                                Vibrator v = (Vibrator) getSystemService(Context.VIBRATOR_SERVICE);
+                                                v.vibrate(750);
+                                            }
                                         } catch (Exception e) {
                                             e.printStackTrace();
                                         }
@@ -458,6 +480,7 @@ public class MainActivity extends ActionBarActivity {
             switch (intent.getAction()) {
 
                 case Intent.ACTION_SCREEN_ON:
+                    screenOn = true;
                     if (disableUpdates) {
                         shutDownSocket = false;
                         fullShutDown = false;
@@ -467,6 +490,7 @@ public class MainActivity extends ActionBarActivity {
                     break;
 
                 case Intent.ACTION_SCREEN_OFF:
+                    screenOn = false;
                     if (disableUpdates) {
                         if (!enableUpdatesWhenConnectedToPower || (enableUpdatesWhenConnectedToPower && !powerConnected)) {
                             EventBus.getDefault().post(new ShutDownEvent(false));
@@ -506,6 +530,12 @@ public class MainActivity extends ActionBarActivity {
         } else {
             timer.setText(getString(R.string.disconnected));
         }
+    }
+
+    public void onEventMainThread(ActionBarColorEvent event) {
+        actionBarColor = event.getColor();
+        Drawable colorDrawable = new ColorDrawable(actionBarColor);
+        getSupportActionBar().setBackgroundDrawable(colorDrawable);
     }
 
     public void onEvent(ShutDownEvent event) {

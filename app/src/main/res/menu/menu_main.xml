@@ -8,7 +8,7 @@
         android:id="@+id/ic_action_settings"
         android:title="Settings"
         android:icon="@drawable/ic_action_settings"
-        android:visible="false"
+        android:visible="true"
         app:showAsAction="always"
          />
 

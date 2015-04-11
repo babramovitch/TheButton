@@ -23,8 +23,8 @@ android {
         applicationId 'com.nebulights.thebutton'
         minSdkVersion 16
         targetSdkVersion 22
-        versionCode 10
-        versionName "1.5.0"
+        versionCode 12
+        versionName "1.6.0"
     }
     buildTypes {
         release {
@@ -45,4 +45,5 @@ dependencies {
     compile 'com.crashlytics.android:crashlytics:1.1.13'
     compile 'com.squareup.okhttp:okhttp:2.3.0'
     compile 'com.iangclifton.android:floatlabel:1.0.3'
+    compile 'com.android.support:support-v4:22.0.0'
 }

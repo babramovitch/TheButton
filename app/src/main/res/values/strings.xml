@@ -73,5 +73,13 @@
             <item>@drawable/one</item>
             <item>@drawable/zero</item>
         </string-array>
+    <string name="title_activity_settings">SettingsActivity</string>
+    <string name="hello_world">Hello world!</string>
+    <string name="action_settings">Settings</string>
+
+    <string name="vibrateTitle">Vibrate When Alert Triggers</string>
+    <string name="vibrateSummary">The phone will vibrate in addition to the audio alert</string>
+    <string name="led_summary">EXPERIMENTAL: Sets the phones LED to The Button\'s color when the screen is off and updates are enabled.\n\nMay randomly cease functioning, may work perfectly. Other notifications may override it.\n\nYou may notice your notification flicker when turning the screen back on. This is expected behavior.</string>
+    <string name="led_title">Enable LED Display</string>
 
 </resources>
