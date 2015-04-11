@@ -1,4 +1,4 @@
-package com.nebulights.thebutton;
+package com.nebulights.thebutton.events;
 
 /**
  * Created by Ben on 05/04/2015.

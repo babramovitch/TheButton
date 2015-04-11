@@ -8,6 +8,8 @@ import android.content.Intent;
 import android.net.Uri;
 import android.os.Bundle;
 
+import com.nebulights.thebutton.events.ShutDownEvent;
+
 import de.greenrobot.event.EventBus;
 
 public class NotificationActivity extends Activity {

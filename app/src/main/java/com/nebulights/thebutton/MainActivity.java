@@ -37,16 +37,16 @@ import android.widget.ImageView;
 import android.widget.TextView;
 import android.widget.Toast;
 
-import com.crashlytics.android.Crashlytics;
 import com.google.gson.JsonObject;
 import com.google.gson.JsonParser;
 
-import com.koushikdutta.async.ByteBufferList;
-import com.koushikdutta.async.DataEmitter;
-import com.koushikdutta.async.callback.DataCallback;
 import com.koushikdutta.async.http.AsyncHttpClient;
 import com.koushikdutta.async.http.WebSocket;
 
+import com.nebulights.thebutton.events.ActionBarColorEvent;
+import com.nebulights.thebutton.events.CurrentTimeEvent;
+import com.nebulights.thebutton.events.InternetConnectedEvent;
+import com.nebulights.thebutton.events.ShutDownEvent;
 import com.squareup.okhttp.OkHttpClient;
 import com.squareup.okhttp.Request;
 import com.squareup.okhttp.Response;
@@ -69,7 +69,7 @@ public class MainActivity extends ActionBarActivity {
     private NotificationCompat.Builder notificationBuilder;
     private NotificationManager notificationManager;
 
-    private int notificationId = new Random().nextInt();
+
     private TypedArray timeImages;
     private URI theButtonURL;
 
@@ -87,9 +87,9 @@ public class MainActivity extends ActionBarActivity {
     boolean disableUpdates;
     boolean enableUpdatesWhenConnectedToPower;
 
-    int[] buttonColors;
-    int alertInt;
-    int actionBarColor;
+    private int notificationId = new Random().nextInt();
+    private int alertInt;
+    private int actionBarColor;
 
     Ringtone ringtone;
 
@@ -102,7 +102,7 @@ public class MainActivity extends ActionBarActivity {
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
 
-        Crashlytics.start(this);
+        //Crashlytics.start(this);
         EventBus.getDefault().register(this);
         setContentView(R.layout.activity_main);
 
@@ -112,14 +112,10 @@ public class MainActivity extends ActionBarActivity {
 
         setSupportActionBar(toolbar);
 
-        buttonColors = this.getResources().getIntArray(R.array.colors);
-
-
-        Drawable colorDrawable = new ColorDrawable(buttonColors[6]);
+        Drawable colorDrawable = new ColorDrawable(ButtonColors.getButtonColor(60));
         getSupportActionBar().setBackgroundDrawable(colorDrawable);
 
         prefsFromSettings = PreferenceManager.getDefaultSharedPreferences(this);
-
 
         prefs = this.getSharedPreferences("com.nebulights.thebutton", Context.MODE_PRIVATE);
         timer = (TextView) findViewById(R.id.timer);
@@ -190,7 +186,7 @@ public class MainActivity extends ActionBarActivity {
         if (savedAlertValue.length() > 0) {
             alertInt = Integer.valueOf(savedAlertValue);
             if(alertInt <= 60) {
-                setMusicNoteColors(buttonColors[(alertInt / 10)]);
+                setMusicNoteColors(ButtonColors.getButtonColor(alertInt));
             }
         } else {
             alertInt = -1;
@@ -209,7 +205,7 @@ public class MainActivity extends ActionBarActivity {
                     alertInt = Integer.valueOf(s.toString());
 
                     if (alertInt <= 60 && alertInt > 0) {
-                        setMusicNoteColors(buttonColors[(alertInt / 10)]);
+                        setMusicNoteColors(ButtonColors.getButtonColor(alertInt));
                     }else{
                         setMusicNoteColors(Color.BLACK);
                     }
@@ -379,7 +375,6 @@ public class MainActivity extends ActionBarActivity {
 
         //{"type": "ticking", "payload": {"participants_text": "605,765", "tick_mac": "2736490ef88a6bc53b5d6ae57a0caf0684aeee5b", "seconds_left": 58.0, "now_str": "2015-04-06-00-57-00"}}
 
-
         AsyncHttpClient.getDefaultInstance().websocket(String.valueOf(theButtonURL), "my-protocol", new AsyncHttpClient.WebSocketConnectCallback() {
 
             @Override
@@ -393,9 +388,6 @@ public class MainActivity extends ActionBarActivity {
                     public void onStringAvailable(String s) {
                         //System.out.println(s);
                         JsonObject newObj = new JsonParser().parse(s).getAsJsonObject();
-                        final String time = newObj.get("payload").getAsJsonObject().get("seconds_left").getAsString().substring(0, 2);
-                        final String users = newObj.get("payload").getAsJsonObject().get("participants_text").getAsString();
-                        final int intTime = newObj.get("payload").getAsJsonObject().get("seconds_left").getAsInt();
 
                         if (shutDownSocket) {
                             webSocket.end();
@@ -405,66 +397,8 @@ public class MainActivity extends ActionBarActivity {
                                 finish();
                             }
                         } else {
-                            runOnUiThread(new Runnable() {
-                                @Override
-                                public void run() {
-
-                                    timer.setText(time);
-                                    int color = buttonColors[6];
-                                    if (intTime != 0) {
-                                        color = buttonColors[(intTime / 10)];
-                                        timer.setTextColor(color);
-                                        notificationBuilder.setColor(color);
-                                        EventBus.getDefault().postSticky(new ActionBarColorEvent(color));
-
-                                    }
-
-                                    participants.setText(users + getString(R.string.participants));
-                                    notificationBuilder.setContentText(time);
-                                    notificationBuilder.setSmallIcon(timeImages.getResourceId(60 - intTime, -1));
-
-                                    //Experimental.
-                                    //I cancel the notification since not cancelling it caused
-                                    //notifications from different colors to bleed into each other.
-                                    if(prefsFromSettings.getBoolean("pref_led",false) && !screenOn){
-                                        if(intTime != 0) {
-                                            notificationBuilder.setLights(buttonColors[(intTime / 10)], 500, 1000);
-                                            notificationManager.cancel(notificationId);
-                                        }
-                                    }
-
-
-                                    if (!shutDownSocket)
-                                        notificationManager.notify(notificationId, notificationBuilder.build());
-
-                                    if (alertInitiated && intTime >= alertInt) {
-                                        alertInitiated = false;
-                                    }
-
-                                    if (alertInt != -1 && intTime <= alertInt && !alertInitiated) {
-                                        alertInitiated = true;
-                                        try {
-                                            ringtone.play();
-                                            if(prefsFromSettings.getBoolean("pref_sync",false)) {
-                                                Vibrator v = (Vibrator) getSystemService(Context.VIBRATOR_SERVICE);
-                                                v.vibrate(750);
-                                            }
-                                        } catch (Exception e) {
-                                            e.printStackTrace();
-                                        }
-
-                                    }
-                                }
-                            });
+                            EventBus.getDefault().post(new CurrentTimeEvent(newObj));
                         }
-                    }
-                });
-
-                webSocket.setDataCallback(new DataCallback() {
-                    @Override
-                    public void onDataAvailable(DataEmitter dataEmitter, ByteBufferList byteBufferList) {
-                        Log.i("test", "Did something happen here?");
-                        byteBufferList.recycle();
                     }
                 });
 
@@ -541,6 +475,59 @@ public class MainActivity extends ActionBarActivity {
     public void onEvent(ShutDownEvent event) {
         shutDownSocket = true;
         fullShutDown = event.isFullshutdown();
+    }
+
+    public void onEventMainThread(CurrentTimeEvent event) {
+
+        JsonObject currentPing = event.getCurrentTime();
+
+        final String time = currentPing.get("payload").getAsJsonObject().get("seconds_left").getAsString().substring(0, 2);
+        final String users = currentPing.get("payload").getAsJsonObject().get("participants_text").getAsString();
+        final int intTime = currentPing.get("payload").getAsJsonObject().get("seconds_left").getAsInt();
+
+        timer.setText(time);
+
+        int color = ButtonColors.getButtonColor(intTime);
+
+        if (intTime != 0) {
+            timer.setTextColor(color);
+            notificationBuilder.setColor(color);
+            EventBus.getDefault().postSticky(new ActionBarColorEvent(color));
+        }
+
+        participants.setText(users + getString(R.string.participants));
+        notificationBuilder.setContentText(time);
+        notificationBuilder.setSmallIcon(timeImages.getResourceId(60 - intTime, -1));
+
+        //Experimental.
+        //I cancel the notification since not cancelling it caused
+        //notifications from different colors to bleed into each other.
+        if(prefsFromSettings.getBoolean("pref_led",false) && !screenOn){
+            if(intTime != 0) {
+                notificationBuilder.setLights(color, 500, 1000);
+                notificationManager.cancel(notificationId);
+            }
+        }
+
+        if (!shutDownSocket)
+            notificationManager.notify(notificationId, notificationBuilder.build());
+
+        if (alertInitiated && intTime >= alertInt) {
+            alertInitiated = false;
+        }
+
+        if (alertInt != -1 && intTime <= alertInt && !alertInitiated) {
+            alertInitiated = true;
+            try {
+                ringtone.play();
+                if(prefsFromSettings.getBoolean("pref_sync",false)) {
+                    Vibrator v = (Vibrator) getSystemService(Context.VIBRATOR_SERVICE);
+                    v.vibrate(750);
+                }
+            } catch (Exception e) {
+                e.printStackTrace();
+            }
+        }
     }
 
     @Override

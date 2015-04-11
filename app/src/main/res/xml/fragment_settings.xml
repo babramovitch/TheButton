@@ -1,16 +1,25 @@
-<PreferenceScreen  xmlns:android="http://schemas.android.com/apk/res/android">
+<PreferenceScreen xmlns:android="http://schemas.android.com/apk/res/android">
 
 
-        <CheckBoxPreference
-            android:key="pref_sync"
-            android:title="@string/vibrateTitle"
-            android:summary="@string/vibrateSummary"
-            android:defaultValue="false" />
+    <PreferenceScreen
+        android:key="daydream"
+        android:title="Enable Day Dream"
+        android:summary="Day Dream acts like a screen saver. When enabled it shows while charging instead of turning the screen off." >
+        <intent android:action="android.settings.DREAM_SETTINGS"/>
+    </PreferenceScreen>
+
 
     <CheckBoxPreference
+        android:defaultValue="false"
+        android:key="pref_sync"
+        android:summary="@string/vibrateSummary"
+        android:title="@string/vibrateTitle" />
+
+
+    <CheckBoxPreference
+        android:defaultValue="false"
         android:key="pref_led"
-        android:title="@string/led_title"
         android:summary="@string/led_summary"
-        android:defaultValue="false" />
+        android:title="@string/led_title" />
 
 </PreferenceScreen>

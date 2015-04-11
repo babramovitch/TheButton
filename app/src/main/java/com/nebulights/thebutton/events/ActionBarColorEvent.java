@@ -1,4 +1,4 @@
-package com.nebulights.thebutton;
+package com.nebulights.thebutton.events;
 
 /**
  * Created by Ben on 10/04/2015.
@@ -13,4 +13,5 @@ public class ActionBarColorEvent {
     public int getColor() {
         return (color);
     }
+
 }

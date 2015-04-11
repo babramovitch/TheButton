@@ -11,6 +11,8 @@ import android.support.v7.widget.Toolbar;
 import android.view.Menu;
 import android.view.MenuItem;
 
+import com.nebulights.thebutton.events.ActionBarColorEvent;
+
 import de.greenrobot.event.EventBus;
 
 public class SettingsActivity extends ActionBarActivity {
