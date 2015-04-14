@@ -24,10 +24,8 @@ import de.greenrobot.event.EventBus;
 @TargetApi(Build.VERSION_CODES.JELLY_BEAN_MR1)
 public class ButtonDreams extends DreamService {
 
-
-    int lastTime;
-    TextView dreamTime, dreamParticipants;
-
+    TextView dreamTime, dreamParticipants, lastPress;
+    int lastPressInt;
     Bouncer bouncer;
 
     @Override
@@ -39,7 +37,7 @@ public class ButtonDreams extends DreamService {
         bouncer = new Bouncer(this);
 
         FrameLayout.LayoutParams lp
-                    = new FrameLayout.LayoutParams(FrameLayout.LayoutParams.WRAP_CONTENT, FrameLayout.LayoutParams.WRAP_CONTENT);
+                = new FrameLayout.LayoutParams(FrameLayout.LayoutParams.WRAP_CONTENT, FrameLayout.LayoutParams.WRAP_CONTENT);
 
         dreamTime = new TextView(this);
         dreamTime.setTextSize(150f);
@@ -47,16 +45,19 @@ public class ButtonDreams extends DreamService {
         dreamParticipants = new TextView(this);
         dreamParticipants.setTextSize(25f);
 
+        lastPress = new TextView(this);
+        lastPress.setTextSize(25f);
+
         bouncer.setLayoutParams(new
                 ViewGroup.LayoutParams(FrameLayout.LayoutParams.MATCH_PARENT, FrameLayout.LayoutParams.MATCH_PARENT));
 
         bouncer.setSpeed(150); // pixels/sec
 
-        bouncer.addView(dreamTime,lp);
-        bouncer.addView(dreamParticipants,lp);
+        bouncer.addView(dreamTime, lp);
+        bouncer.addView(dreamParticipants, lp);
+        bouncer.addView(lastPress, lp);
 
         setContentView(bouncer);
-
 
     }
 
@@ -73,22 +74,24 @@ public class ButtonDreams extends DreamService {
         final String time = currentPing.get("payload").getAsJsonObject().get("seconds_left").getAsString().substring(0, 2);
         final String users = currentPing.get("payload").getAsJsonObject().get("participants_text").getAsString();
         final int intTime = currentPing.get("payload").getAsJsonObject().get("seconds_left").getAsInt();
+        int color = ButtonColors.getButtonColor(intTime);
 
-        lastTime = intTime;
+        if(lastPressInt != 0 && lastPressInt < intTime){
+            lastPress.setText("last press " + lastPressInt);
+            lastPress.setTextColor(ButtonColors.getButtonColor(lastPressInt));
+        }
+
+        lastPressInt = intTime;
 
         dreamTime.setText(time);
         dreamParticipants.setText(users + getString(R.string.participants));
 
-        if (intTime != 0) {
-
-            int color = ButtonColors.getButtonColor(intTime);
-            dreamTime.setTextColor(color);
-            dreamParticipants.setTextColor(color);
-
-        }
+        dreamTime.setTextColor(color);
+        dreamParticipants.setTextColor(color);
 
     }
 
+    //http://android-developers.blogspot.com/2012/12/daydream-interactive-screen-savers.html
     public class Bouncer extends FrameLayout implements TimeAnimator.TimeListener {
         private float mMaxSpeed;
         private final TimeAnimator mAnimator;

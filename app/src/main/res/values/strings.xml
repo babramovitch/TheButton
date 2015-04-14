@@ -2,7 +2,8 @@
     <string name="app_name">The Button</string>
     <string name="cannot_get_socket_link">Could not get connection data</string>
     <string name="thebutton">The Button</string>
-    <string name="socket_url">https://s3.amazonaws.com/nebulights.com/thebutton.txt</string>
+    <string name="socket_url">https://www.reddit.com/r/thebutton</string>
+    <string name="socket_url_backup">https://s3.amazonaws.com/nebulights.com/thebutton.txt</string>
     <string name="goto_button">Goto Button</string>
     <string name="close_button">Close</string>
     <string name="participants">" participants"</string>

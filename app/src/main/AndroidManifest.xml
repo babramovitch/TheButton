@@ -21,7 +21,8 @@
         <service
             android:name=".ButtonDreams"
             android:exported="true"
-            android:label="The Button Dreams" >
+            android:label="The Button Dreams"
+            android:permission="android.permission.BIND_DREAM_SERVICE">
             <intent-filter>
                 <action android:name="android.service.dreams.DreamService" />
                 <category android:name="android.intent.category.DEFAULT" />

@@ -3,14 +3,4 @@
 
     <color name="background_material_light">#ffeeeeee</color>
 
-        <array name="colors">
-            <item>#e50000</item>
-            <item>#e59500</item>
-            <item>#E5D900</item>
-            <item>#02be01</item>
-            <item>#0083C7</item>
-            <item>#820080</item>
-            <item>#820080</item>
-        </array>
-
 </resources>

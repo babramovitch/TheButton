@@ -107,5 +107,4 @@
         android:layout_toRightOf="@+id/alert_value"
         android:layout_toEndOf="@+id/alert_value" />
 
-
 </RelativeLayout>
