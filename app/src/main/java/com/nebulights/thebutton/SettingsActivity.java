@@ -11,7 +11,7 @@ import android.support.v7.widget.Toolbar;
 import android.view.Menu;
 import android.view.MenuItem;
 
-import com.nebulights.thebutton.events.ActionBarColorEvent;
+import com.nebulights.thebutton.events.SetCurrentColorEvent;
 
 import de.greenrobot.event.EventBus;
 
@@ -35,7 +35,7 @@ public class SettingsActivity extends ActionBarActivity {
         }
     }
 
-    public void onEventMainThread(ActionBarColorEvent event) {
+    public void onEventMainThread(SetCurrentColorEvent event) {
         int actionBarColor = event.getColor();
         Drawable colorDrawable = new ColorDrawable(actionBarColor);
         getSupportActionBar().setBackgroundDrawable(colorDrawable);

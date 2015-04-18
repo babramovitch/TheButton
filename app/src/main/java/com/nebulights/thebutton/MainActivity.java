@@ -1,6 +1,5 @@
 package com.nebulights.thebutton;
 
-
 import android.app.Activity;
 import android.app.NotificationManager;
 import android.app.PendingIntent;
@@ -17,7 +16,6 @@ import android.media.Ringtone;
 import android.media.RingtoneManager;
 import android.net.Uri;
 import android.os.AsyncTask;
-
 import android.os.Vibrator;
 import android.preference.PreferenceManager;
 import android.support.v4.app.NotificationCompat;
@@ -44,10 +42,11 @@ import com.google.gson.JsonParser;
 import com.koushikdutta.async.http.AsyncHttpClient;
 import com.koushikdutta.async.http.WebSocket;
 
-import com.nebulights.thebutton.events.ActionBarColorEvent;
+import com.nebulights.thebutton.events.SetCurrentColorEvent;
 import com.nebulights.thebutton.events.CurrentTimeEvent;
 import com.nebulights.thebutton.events.InternetConnectedEvent;
 import com.nebulights.thebutton.events.ShutDownEvent;
+
 import com.squareup.okhttp.OkHttpClient;
 import com.squareup.okhttp.Request;
 import com.squareup.okhttp.Response;
@@ -65,6 +64,9 @@ public class MainActivity extends ActionBarActivity {
 
     private ImageView musicNoteOne, musicNoteTwo;
 
+    private CheckBox disableUpdatesIfScreenOffCheckBox;
+    private CheckBox enableUpdatesWhenPowerConnectedCheckBox;
+
     private NotificationCompat.Builder notificationBuilder;
     private NotificationManager notificationManager;
 
@@ -74,22 +76,22 @@ public class MainActivity extends ActionBarActivity {
     private boolean shutDownSocket = false;
     private boolean fullShutDown = false;
     private boolean screenOn = true;
-    boolean alertInitiated = false;
-    boolean powerConnected = false;
+    private boolean alertInitiated = false;
+    private boolean powerConnected = false;
     private boolean disableUpdates;
     private boolean enableUpdatesWhenConnectedToPower;
 
-    private OkHttpClient client = new OkHttpClient();
+    private int notificationId = new Random().nextInt();
+    private int alertInt;
+    private int currentColor;
 
-    private CheckBox disableUpdatesIfScreenOffCheckBox;
-    private CheckBox enableUpdatesWhenPowerConnected;
+    private OkHttpClient client = new OkHttpClient();
+    private final JsonParser jsonParser = new JsonParser();
+    private Ringtone ringtone;
+
     private SharedPreferences prefs;
     private SharedPreferences prefsFromSettings;
 
-    private int notificationId = new Random().nextInt();
-    private int alertInt;
-
-    private Ringtone ringtone;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -99,37 +101,62 @@ public class MainActivity extends ActionBarActivity {
         EventBus.getDefault().register(this);
         setContentView(R.layout.activity_main);
 
+        try {
+            Toolbar toolbar = (Toolbar) findViewById(R.id.toolbar);
+            toolbar.setTitle("The Button");
+            setSupportActionBar(toolbar);
 
-        Toolbar toolbar = (Toolbar) findViewById(R.id.toolbar);
-        toolbar.setTitle("The Button");
-
-        setSupportActionBar(toolbar);
-
-        Drawable colorDrawable = new ColorDrawable(ButtonColors.getButtonColor(60));
-        getSupportActionBar().setBackgroundDrawable(colorDrawable);
+            Drawable colorDrawable = new ColorDrawable(ButtonColors.getButtonColor(60));
+            getSupportActionBar().setBackgroundDrawable(colorDrawable);
+        } catch (Exception e) {
+            //Issue in Appcompat library impacting Samsung 4.2.2 devices.
+            //https://code.google.com/p/android/issues/detail?can=2&start=0&num=100&q=&colspec=ID%20Type%20Status%20Owner%20Summary%20Stars&groupby=&sort=&id=78377
+            Toast.makeText(this, "Android issue with actionbar on Samsung 4.2.2 devices. Fix failed. WHOOPS!", Toast.LENGTH_LONG).show();
+            Crashlytics.logException(e);
+        }
 
         prefsFromSettings = PreferenceManager.getDefaultSharedPreferences(this);
+        prefs = this.getSharedPreferences("com.nebulights.thebutton", Context.MODE_PRIVATE); //Whoops, made this, then did preference fragments later and now have both.
 
-        prefs = this.getSharedPreferences("com.nebulights.thebutton", Context.MODE_PRIVATE);
+        timeImages = getResources().obtainTypedArray(R.array.time_images);
         timer = (TextView) findViewById(R.id.timer);
         participants = (TextView) findViewById(R.id.participants);
-        timeImages = getResources().obtainTypedArray(R.array.time_images);
-        disableUpdatesIfScreenOffCheckBox = (CheckBox) findViewById(R.id.checkBoxUpdates);
-        enableUpdatesWhenPowerConnected = (CheckBox) findViewById(R.id.checkBoxEnableUpdatesWhenPowerConnected);
+
+        registerReceiver(screenBroadcast, new IntentFilter(Intent.ACTION_POWER_CONNECTED));
+        registerReceiver(screenBroadcast, new IntentFilter(Intent.ACTION_POWER_DISCONNECTED));
+        registerReceiver(screenBroadcast, new IntentFilter(Intent.ACTION_SCREEN_ON));
+        registerReceiver(screenBroadcast, new IntentFilter(Intent.ACTION_SCREEN_OFF));
+
+        setSavedButtonLink();
+        setupAlerts();
+        setupPowerOptions();
+        setupNotification();
+
+        if (savedInstanceState == null) {
+            ScrapeWebSocketLink getWebSocketLink = new ScrapeWebSocketLink();
+            getWebSocketLink.execute(getString(R.string.socket_url));
+            timer.setText("Connecting...");
+        } else {
+            timer.setText(savedInstanceState.getString("timer", "Connecting..."));
+            participants.setText(savedInstanceState.getString("participants", ""));
+            EventBus.getDefault().post(new SetCurrentColorEvent(savedInstanceState.getInt("currentColor", Color.BLACK)));
+        }
 
 
+    }
+
+    private void setSavedButtonLink() {
         String url = prefs.getString("wsslink", null);
-        if(url != null && url.length() != 0) {
-            try{
+        if (url != null && url.length() != 0) {
+            try {
                 theButtonURL = URI.create(url);
-            }catch(Exception e){
+            } catch (Exception e) {
                 Log.e("TheButton", "Error generating URI", e);
             }
         }
+    }
 
-        if (PowerUtil.isConnected(this)) {
-            powerConnected = true;
-        }
+    private void setupAlerts() {
 
         boolean foundMusic = prefs.getBoolean("foundMusic", false);
         if (!foundMusic)
@@ -162,29 +189,7 @@ public class MainActivity extends ActionBarActivity {
             }
         });
 
-        disableUpdates = prefs.getBoolean("disable", true);
-        enableUpdatesWhenConnectedToPower = prefs.getBoolean("enableUpdatesWhenConnectedToPower", false);
-
-        registerReceiver(screenBroadcast, new IntentFilter(Intent.ACTION_POWER_CONNECTED));
-        registerReceiver(screenBroadcast, new IntentFilter(Intent.ACTION_POWER_DISCONNECTED));
-        registerReceiver(screenBroadcast, new IntentFilter(Intent.ACTION_SCREEN_ON));
-        registerReceiver(screenBroadcast, new IntentFilter(Intent.ACTION_SCREEN_OFF));
-
-        if (disableUpdates) {
-            disableUpdatesIfScreenOffCheckBox.setChecked(true);
-
-            if (enableUpdatesWhenConnectedToPower) {
-                enableUpdatesWhenPowerConnected.setChecked(true);
-            }
-
-        } else {
-            enableUpdatesWhenPowerConnected.setVisibility(View.GONE);
-            enableUpdatesWhenPowerConnected.setChecked(false);
-        }
-
         String savedAlertValue = prefs.getString("alert", "");
-        EditText alertEditText = (EditText) findViewById(R.id.edit_text);
-        alertEditText.setText(savedAlertValue);
 
         if (savedAlertValue.length() > 0) {
             alertInt = Integer.valueOf(savedAlertValue);
@@ -195,6 +200,8 @@ public class MainActivity extends ActionBarActivity {
             alertInt = -1;
         }
 
+        EditText alertEditText = (EditText) findViewById(R.id.edit_text);
+        alertEditText.setText(savedAlertValue);
         alertEditText.addTextChangedListener(new TextWatcher() {
             public void afterTextChanged(Editable s) {
             }
@@ -220,18 +227,44 @@ public class MainActivity extends ActionBarActivity {
             }
         });
 
+    }
+
+    private void setupPowerOptions() {
+
+        if (PowerUtil.isConnected(this)) {
+            powerConnected = true;
+        }
+
+        disableUpdatesIfScreenOffCheckBox = (CheckBox) findViewById(R.id.checkBoxUpdates);
+        enableUpdatesWhenPowerConnectedCheckBox = (CheckBox) findViewById(R.id.checkBoxEnableUpdatesWhenPowerConnected);
+
+        disableUpdates = prefs.getBoolean("disable", true);
+        enableUpdatesWhenConnectedToPower = prefs.getBoolean("enableUpdatesWhenConnectedToPower", false);
+
+        if (disableUpdates) {
+            disableUpdatesIfScreenOffCheckBox.setChecked(true);
+
+            if (enableUpdatesWhenConnectedToPower) {
+                enableUpdatesWhenPowerConnectedCheckBox.setChecked(true);
+            }
+
+        } else {
+            enableUpdatesWhenPowerConnectedCheckBox.setVisibility(View.GONE);
+            enableUpdatesWhenPowerConnectedCheckBox.setChecked(false);
+        }
+
         disableUpdatesIfScreenOffCheckBox.setOnCheckedChangeListener(new CompoundButton.OnCheckedChangeListener() {
                                                                          @Override
                                                                          public void onCheckedChanged(CompoundButton buttonView, boolean isChecked) {
                                                                              if (isChecked) {
                                                                                  disableUpdates = true;
-                                                                                 enableUpdatesWhenPowerConnected.setVisibility(View.VISIBLE);
+                                                                                 enableUpdatesWhenPowerConnectedCheckBox.setVisibility(View.VISIBLE);
                                                                                  prefs.edit().putBoolean("disable", true).apply();
                                                                              } else {
                                                                                  disableUpdates = false;
-                                                                                 enableUpdatesWhenPowerConnected.setVisibility(View.GONE);
-                                                                                 if (enableUpdatesWhenPowerConnected.isChecked()) {
-                                                                                     enableUpdatesWhenPowerConnected.setChecked(false);
+                                                                                 enableUpdatesWhenPowerConnectedCheckBox.setVisibility(View.GONE);
+                                                                                 if (enableUpdatesWhenPowerConnectedCheckBox.isChecked()) {
+                                                                                     enableUpdatesWhenPowerConnectedCheckBox.setChecked(false);
                                                                                  }
                                                                                  prefs.edit().putBoolean("disable", false).apply();
                                                                              }
@@ -239,50 +272,20 @@ public class MainActivity extends ActionBarActivity {
                                                                      }
         );
 
-        enableUpdatesWhenPowerConnected.setOnCheckedChangeListener(new CompoundButton.OnCheckedChangeListener() {
-                                                                       @Override
-                                                                       public void onCheckedChanged(CompoundButton buttonView, boolean isChecked) {
-                                                                           if (isChecked) {
-                                                                               enableUpdatesWhenConnectedToPower = true;
-                                                                               prefs.edit().putBoolean("enableUpdatesWhenConnectedToPower", true).apply();
-                                                                           } else {
-                                                                               enableUpdatesWhenConnectedToPower = false;
-                                                                               prefs.edit().putBoolean("enableUpdatesWhenConnectedToPower", false).apply();
+        enableUpdatesWhenPowerConnectedCheckBox.setOnCheckedChangeListener(new CompoundButton.OnCheckedChangeListener() {
+                                                                               @Override
+                                                                               public void onCheckedChanged(CompoundButton buttonView, boolean isChecked) {
+                                                                                   if (isChecked) {
+                                                                                       enableUpdatesWhenConnectedToPower = true;
+                                                                                       prefs.edit().putBoolean("enableUpdatesWhenConnectedToPower", true).apply();
+                                                                                   } else {
+                                                                                       enableUpdatesWhenConnectedToPower = false;
+                                                                                       prefs.edit().putBoolean("enableUpdatesWhenConnectedToPower", false).apply();
+                                                                                   }
+                                                                               }
                                                                            }
-                                                                       }
-                                                                   }
         );
 
-        setupNotification();
-
-        //GetWebSocketLink getWebSocketLink = new GetWebSocketLink();
-        ScrapeWebSocketLink getWebSocketLink = new ScrapeWebSocketLink();
-        getWebSocketLink.execute(getString(R.string.socket_url));
-
-    }
-
-    @Override
-    public boolean onCreateOptionsMenu(Menu menu) {
-        getMenuInflater().inflate(R.menu.menu_main, menu);
-        return true;
-    }
-
-    public boolean onPrepareOptionsMenu(Menu menu) {
-        return true;
-    }
-
-    @Override
-    public boolean onOptionsItemSelected(MenuItem item) {
-
-        int id = item.getItemId();
-
-        if (id == R.id.ic_action_settings) {
-            Intent myIntent = new Intent(MainActivity.this, SettingsActivity.class);
-            MainActivity.this.startActivity(myIntent);
-            return true;
-        }
-
-        return super.onOptionsItemSelected(item);
     }
 
     private void setMusicNoteColors(int color) {
@@ -318,8 +321,34 @@ public class MainActivity extends ActionBarActivity {
 
         notificationManager.notify(notificationId, notificationBuilder.build());
 
-
     }
+
+
+    @Override
+    public boolean onCreateOptionsMenu(Menu menu) {
+        getMenuInflater().inflate(R.menu.menu_main, menu);
+        return super.onCreateOptionsMenu(menu);
+    }
+
+    @Override
+    public boolean onOptionsItemSelected(MenuItem item) {
+
+        int id = item.getItemId();
+
+        if (id == R.id.ic_action_settings) {
+            Intent myIntent = new Intent(MainActivity.this, SettingsActivity.class);
+            MainActivity.this.startActivity(myIntent);
+            return true;
+        }
+
+        return super.onOptionsItemSelected(item);
+    }
+
+    @Override
+    public void onResume() {
+        super.onResume();
+    }
+
 
     private class ScrapeWebSocketLink extends AsyncTask<String, Void, String> {
 
@@ -338,7 +367,7 @@ public class MainActivity extends ActionBarActivity {
             } else {
                 try {
 
-     //Special thanks to https://github.com/artganify for the connection data that reddit doesn't block as a bot.
+                    //Special thanks to https://github.com/artganify for the connection data that reddit doesn't block as a bot.
                     Request request = new Request.Builder()
                             .url(urls[0])
                             .addHeader("Accept", "text/html")
@@ -386,8 +415,8 @@ public class MainActivity extends ActionBarActivity {
     }
 
     /*
-      GetWebSocketLink was my original method of getting the websocket link and avoiding reddit calling me a bot
-      With the new ScrapeWebSocketLink method (Thanks /u/51314a36596e427a656b) it appears to work correctly
+      GetWebSocketLink was my original method of getting the websocket link and avoiding reddit
+      calling me a bot. With the new ScrapeWebSocketLink method it appears to work correctly
       but I'm leaving this old method as a backup in case it suddenly starts to fail.
      */
 
@@ -451,8 +480,6 @@ public class MainActivity extends ActionBarActivity {
 
     private void initWebSocket() {
 
-        final JsonParser jsonParser = new JsonParser();
-
         //{"type": "ticking", "payload": {"participants_text": "605,765", "tick_mac": "2736490ef88a6bc53b5d6ae57a0caf0684aeee5b", "seconds_left": 58.0, "now_str": "2015-04-06-00-57-00"}}
         AsyncHttpClient.getDefaultInstance().websocket(String.valueOf(theButtonURL), "my-protocol", new AsyncHttpClient.WebSocketConnectCallback() {
 
@@ -466,7 +493,6 @@ public class MainActivity extends ActionBarActivity {
                 webSocket.setStringCallback(new WebSocket.StringCallback() {
                     public void onStringAvailable(String s) {
                         //System.out.println(s);
-                        JsonObject newObj = jsonParser.parse(s).getAsJsonObject();
 
                         if (shutDownSocket) {
                             webSocket.end();
@@ -476,13 +502,80 @@ public class MainActivity extends ActionBarActivity {
                                 finish();
                             }
                         } else {
-                            EventBus.getDefault().post(new CurrentTimeEvent(newObj));
+                            EventBus.getDefault().post(new CurrentTimeEvent(s));
                         }
                     }
                 });
-
             }
         });
+    }
+
+    public void onEventMainThread(CurrentTimeEvent event) {
+
+        JsonObject currentPing = jsonParser.parse(event.getCurrentTime()).getAsJsonObject();
+
+        final String users = currentPing.get("payload").getAsJsonObject().get("participants_text").getAsString();
+        final int intTime = currentPing.get("payload").getAsJsonObject().get("seconds_left").getAsInt();
+
+        timer.setText(String.valueOf(intTime));
+        participants.setText(users + getString(R.string.participants));
+
+        EventBus.getDefault().postSticky(new SetCurrentColorEvent(ButtonColors.getButtonColor(intTime)));
+        updateNotification(intTime);
+        alertIfNeeded(intTime);
+
+    }
+
+    public void onEventMainThread(SetCurrentColorEvent event) {
+
+        currentColor = event.getColor();
+        timer.setTextColor(currentColor);
+
+        Drawable colorDrawable = new ColorDrawable(currentColor);
+        getSupportActionBar().setBackgroundDrawable(colorDrawable);
+    }
+
+    private void updateNotification(int intTime) {
+
+        int color = ButtonColors.getButtonColor(intTime);
+
+        notificationBuilder.setColor(color);
+        notificationBuilder.setContentText(String.valueOf(intTime));
+        notificationBuilder.setSmallIcon(timeImages.getResourceId(60 - intTime, -1));
+
+        //Experimental - setting the led color
+        //I cancel the notification since not cancelling it caused
+        //notifications from different colors to bleed into each other.
+        if (prefsFromSettings.getBoolean("pref_led", false) && !screenOn) {
+            if (intTime != 0) {
+                notificationBuilder.setLights(color, 500, 1000);
+                notificationManager.cancel(notificationId);
+            }
+        }
+
+        if (!shutDownSocket)
+            notificationManager.notify(notificationId, notificationBuilder.build());
+
+    }
+
+    private void alertIfNeeded(int intTime) {
+
+        if (alertInitiated && intTime >= alertInt) {
+            alertInitiated = false;
+        }
+
+        if (alertInt != -1 && intTime <= alertInt && !alertInitiated) {
+            alertInitiated = true;
+            try {
+                ringtone.play();
+                if (prefsFromSettings.getBoolean("pref_sync", false)) {
+                    Vibrator v = (Vibrator) getSystemService(Context.VIBRATOR_SERVICE);
+                    v.vibrate(750);
+                }
+            } catch (Exception e) {
+                e.printStackTrace();
+            }
+        }
     }
 
     BroadcastReceiver screenBroadcast = new BroadcastReceiver() {
@@ -497,7 +590,6 @@ public class MainActivity extends ActionBarActivity {
                     if (disableUpdates) {
                         shutDownSocket = false;
                         fullShutDown = false;
-                        //GetWebSocketLink task = new GetWebSocketLink();
                         ScrapeWebSocketLink task = new ScrapeWebSocketLink();
                         task.execute(getString(R.string.socket_url));
                     }
@@ -538,7 +630,6 @@ public class MainActivity extends ActionBarActivity {
 
         if (event.isConnected()) {
             timer.setText(getString(R.string.connecting));
-//            GetWebSocketLink task = new GetWebSocketLink();
             ScrapeWebSocketLink task = new ScrapeWebSocketLink();
             task.execute(getString(R.string.socket_url));
         } else {
@@ -546,65 +637,16 @@ public class MainActivity extends ActionBarActivity {
         }
     }
 
-    public void onEventMainThread(ActionBarColorEvent event) {
-        int actionBarColor = event.getColor();
-        Drawable colorDrawable = new ColorDrawable(actionBarColor);
-        getSupportActionBar().setBackgroundDrawable(colorDrawable);
-    }
+
 
     public void onEvent(ShutDownEvent event) {
         shutDownSocket = true;
         fullShutDown = event.isFullshutdown();
     }
 
-    public void onEventMainThread(CurrentTimeEvent event) {
-
-        JsonObject currentPing = event.getCurrentTime();
-
-        final String time = currentPing.get("payload").getAsJsonObject().get("seconds_left").getAsString().substring(0, 2);
-        final String users = currentPing.get("payload").getAsJsonObject().get("participants_text").getAsString();
-        final int intTime = currentPing.get("payload").getAsJsonObject().get("seconds_left").getAsInt();
-        int color = ButtonColors.getButtonColor(intTime);
-
-        EventBus.getDefault().postSticky(new ActionBarColorEvent(color));
-
-        timer.setText(time);
-        timer.setTextColor(color);
-        participants.setText(users + getString(R.string.participants));
-
-        notificationBuilder.setColor(color);
-        notificationBuilder.setContentText(time);
-        notificationBuilder.setSmallIcon(timeImages.getResourceId(60 - intTime, -1));
-
-        //Experimental - setting the led color
-        //I cancel the notification since not cancelling it caused
-        //notifications from different colors to bleed into each other.
-        if (prefsFromSettings.getBoolean("pref_led", false) && !screenOn) {
-            if (intTime != 0) {
-                notificationBuilder.setLights(color, 500, 1000);
-                notificationManager.cancel(notificationId);
-            }
-        }
-
-        if (!shutDownSocket)
-            notificationManager.notify(notificationId, notificationBuilder.build());
-
-        if (alertInitiated && intTime >= alertInt) {
-            alertInitiated = false;
-        }
-
-        if (alertInt != -1 && intTime <= alertInt && !alertInitiated) {
-            alertInitiated = true;
-            try {
-                ringtone.play();
-                if (prefsFromSettings.getBoolean("pref_sync", false)) {
-                    Vibrator v = (Vibrator) getSystemService(Context.VIBRATOR_SERVICE);
-                    v.vibrate(750);
-                }
-            } catch (Exception e) {
-                e.printStackTrace();
-            }
-        }
+    @Override
+    public void onPause() {
+        super.onPause();
     }
 
     @Override
@@ -616,13 +658,11 @@ public class MainActivity extends ActionBarActivity {
     }
 
     @Override
-    public void onPause() {
-        super.onPause();
-    }
-
-    @Override
-    public void onResume() {
-        super.onResume();
+    public void onSaveInstanceState(Bundle outState) {
+        super.onSaveInstanceState(outState);
+        outState.putString("timer", timer.getText().toString());
+        outState.putString("participants", participants.getText().toString());
+        outState.putInt("currentColor", currentColor);
     }
 
     @Override
@@ -633,7 +673,6 @@ public class MainActivity extends ActionBarActivity {
         EventBus.getDefault().unregister(this);
         notificationManager.cancelAll();
         ringtone = null;
-
 
     }
 }

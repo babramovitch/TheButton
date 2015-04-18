@@ -3,10 +3,10 @@ package com.nebulights.thebutton.events;
 /**
  * Created by Ben on 10/04/2015.
  */
-public class ActionBarColorEvent {
+public class SetCurrentColorEvent {
     private int color;
 
-    public ActionBarColorEvent(int color) {
+    public SetCurrentColorEvent(int color) {
         this.color = color;
     }
 

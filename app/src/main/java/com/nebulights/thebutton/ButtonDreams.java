@@ -13,6 +13,7 @@ import android.widget.FrameLayout;
 import android.widget.TextView;
 
 import com.google.gson.JsonObject;
+import com.google.gson.JsonParser;
 import com.nebulights.thebutton.events.CurrentTimeEvent;
 
 import de.greenrobot.event.EventBus;
@@ -27,6 +28,8 @@ public class ButtonDreams extends DreamService {
     TextView dreamTime, dreamParticipants, lastPress;
     int lastPressInt;
     Bouncer bouncer;
+
+    private final JsonParser jsonParser = new JsonParser();
 
     @Override
     public void onAttachedToWindow() {
@@ -69,7 +72,7 @@ public class ButtonDreams extends DreamService {
 
     public void onEventMainThread(CurrentTimeEvent event) {
 
-        JsonObject currentPing = event.getCurrentTime();
+        JsonObject currentPing = jsonParser.parse(event.getCurrentTime()).getAsJsonObject();
 
         final String time = currentPing.get("payload").getAsJsonObject().get("seconds_left").getAsString().substring(0, 2);
         final String users = currentPing.get("payload").getAsJsonObject().get("participants_text").getAsString();

@@ -1,19 +1,17 @@
 package com.nebulights.thebutton.events;
 
-import com.google.gson.JsonObject;
-
 /**
  * Created by Ben on 05/04/2015.
  */
 public class CurrentTimeEvent {
 
-    JsonObject currentPing;
+    String currentPing;
 
-    public CurrentTimeEvent(JsonObject currentPing) {
+    public CurrentTimeEvent(String currentPing) {
         this.currentPing = currentPing;
     }
 
-    public JsonObject getCurrentTime() {
+    public String getCurrentTime() {
         return currentPing;
     }
 

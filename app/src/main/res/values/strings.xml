@@ -82,5 +82,8 @@
     <string name="vibrateSummary">The phone will vibrate in addition to the audio alert</string>
     <string name="led_summary">EXPERIMENTAL: Sets the phones LED to The Button\'s color when the screen is off and updates are enabled.\n\nMay randomly cease functioning, may work perfectly. Other notifications may override it.\n\nYou may notice your notification flicker when turning the screen back on. This is expected behavior.</string>
     <string name="led_title">Enable LED Display</string>
+    <string name="updatesConnectedToPower">Keep updates enabled while connected to power</string>
+    <string name="disabledAlertWarning">Alerts will not occur when disabled</string>
+    <string name="disableWhileScreenOff">Disable updates while screen is off</string>
 
 </resources>
