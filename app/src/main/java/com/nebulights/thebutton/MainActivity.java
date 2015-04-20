@@ -211,7 +211,7 @@ public class MainActivity extends ActionBarActivity {
 
             public void onTextChanged(CharSequence s, int start, int before, int count) {
                 prefs.edit().putString("alert", s.toString()).apply();
-                if (s.length() > 0) {
+                if (s.length() > 0 && isNumeric(s)) {
                     alertInt = Integer.valueOf(s.toString());
 
                     if (alertInt <= 60 && alertInt > 0) {
@@ -227,6 +227,18 @@ public class MainActivity extends ActionBarActivity {
             }
         });
 
+    }
+
+    private boolean isNumeric(CharSequence str) {
+        //Somehow, someone managed to paste/insert a letter into the number only edit text.
+        //I'm not sure how but this is here because of YOU.
+        try {
+            int i = Integer.valueOf(str.toString());
+        } catch (NumberFormatException e) {
+            return false;
+        }
+
+        return true;
     }
 
     private void setupPowerOptions() {
@@ -302,6 +314,12 @@ public class MainActivity extends ActionBarActivity {
     }
 
     private void setupNotification() {
+
+        if (prefs.getInt("notificationId", -1) == -1) {
+            prefs.edit().putInt("notificationId", notificationId).apply();
+        } else {
+            notificationId = prefs.getInt("notificationId", -1);
+        }
 
         PendingIntent dismissIntent = NotificationActivity.getDismissIntent(notificationId, this);
         PendingIntent gotoButtonIntent = NotificationActivity.gotoButton(this);
@@ -638,7 +656,6 @@ public class MainActivity extends ActionBarActivity {
     }
 
 
-
     public void onEvent(ShutDownEvent event) {
         shutDownSocket = true;
         fullShutDown = event.isFullshutdown();
@@ -667,12 +684,13 @@ public class MainActivity extends ActionBarActivity {
 
     @Override
     public void onDestroy() {
-        super.onDestroy();
 
         unregisterReceiver(screenBroadcast);
         EventBus.getDefault().unregister(this);
         notificationManager.cancelAll();
         ringtone = null;
+
+        super.onDestroy();
 
     }
 }
