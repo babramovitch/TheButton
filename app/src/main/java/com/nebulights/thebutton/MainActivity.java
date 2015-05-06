@@ -377,6 +377,8 @@ public class MainActivity extends ActionBarActivity {
             long hour = minute * 60;
             long twelvehours = hour * 12;
 
+            String responseString = "";
+
             Long wssLastUpdatedTime = prefs.getLong("wsstimestamp", 0);
             Long timeDifference = System.currentTimeMillis() - wssLastUpdatedTime;
 
@@ -396,7 +398,7 @@ public class MainActivity extends ActionBarActivity {
                             .build();
 
                     Response response = client.newCall(request).execute();
-                    String responseString = response.body().string();
+                    responseString = response.body().string();
 
                     String startLookup = "wss://";
                     String endLookup = "\"";
@@ -409,7 +411,11 @@ public class MainActivity extends ActionBarActivity {
                     return uri;
 
                 } catch (IOException e) {
-                    Log.i("OKHTTP", "Error reading webpage", e);
+                    Crashlytics.logException(e);
+                } catch (Exception e){
+                    Crashlytics.log(responseString);
+                    Crashlytics.logException(e);
+
                 }
             }
 
@@ -423,53 +429,8 @@ public class MainActivity extends ActionBarActivity {
                     theButtonURL = URI.create(result);
                     initWebSocket();
                 } catch (Exception e) {
-                    GetWebSocketLink getWebSocketLink = new GetWebSocketLink();
-                    getWebSocketLink.execute(getString(R.string.socket_url_backup));
-                }
-            } else {
-                timer.setText(getString(R.string.cannot_get_socket_link));
-            }
-        }
-    }
-
-    /*
-      GetWebSocketLink was my original method of getting the websocket link and avoiding reddit
-      calling me a bot. With the new ScrapeWebSocketLink method it appears to work correctly
-      but I'm leaving this old method as a backup in case it suddenly starts to fail.
-     */
-
-    private class GetWebSocketLink extends AsyncTask<String, Void, String> {
-
-        @Override
-        protected String doInBackground(String... urls) {
-
-            try {
-                Request request = new Request.Builder()
-                        .url(urls[0])
-                        .build();
-
-                Response response = client.newCall(request).execute();
-
-                return response.body().string();
-            } catch (IOException e) {
-                Log.i("OKHTTP", "Error reading webpage", e);
-            }
-
-            return "error";
-        }
-
-        @Override
-        protected void onPostExecute(String result) {
-            if (!result.equals("error")) {
-                try {
-                    theButtonURL = URI.create(result);
-                    prefs.edit().putLong("wsstimestamp", 0).apply();
-                    prefs.edit().putString("wsslink", "").apply();
-                    initWebSocket();
-                } catch (Exception e) {
-                    Log.e("TheButton", "Exception creating URI", e);
-                    timer.setText("Could not get websocket link from Reddit or backup source.  Please close app and try again. If this issue persists contact me via email");
-                    timer.setTextSize(20f);
+                    Crashlytics.logException(e);
+                    timer.setText(getString(R.string.cannot_get_socket_link));
                 }
             } else {
                 timer.setText(getString(R.string.cannot_get_socket_link));
