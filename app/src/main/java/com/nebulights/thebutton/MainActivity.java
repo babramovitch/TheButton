@@ -15,7 +15,6 @@ import android.graphics.drawable.Drawable;
 import android.media.Ringtone;
 import android.media.RingtoneManager;
 import android.net.Uri;
-import android.os.AsyncTask;
 import android.os.Vibrator;
 import android.preference.PreferenceManager;
 import android.support.v4.app.NotificationCompat;
@@ -42,18 +41,16 @@ import com.google.gson.JsonParser;
 import com.koushikdutta.async.http.AsyncHttpClient;
 import com.koushikdutta.async.http.WebSocket;
 
+import com.nebulights.thebutton.events.GetWebSocketLinkCompleteEvent;
+import com.nebulights.thebutton.events.GetWebSocketLinkFailureEvent;
 import com.nebulights.thebutton.events.SetCurrentColorEvent;
 import com.nebulights.thebutton.events.CurrentTimeEvent;
 import com.nebulights.thebutton.events.InternetConnectedEvent;
 import com.nebulights.thebutton.events.ShutDownEvent;
-
 import com.squareup.okhttp.OkHttpClient;
-import com.squareup.okhttp.Request;
-import com.squareup.okhttp.Response;
 
 import de.greenrobot.event.EventBus;
 
-import java.io.IOException;
 import java.net.URI;
 import java.util.Random;
 
@@ -133,15 +130,13 @@ public class MainActivity extends ActionBarActivity {
         setupNotification();
 
         if (savedInstanceState == null) {
-            ScrapeWebSocketLink getWebSocketLink = new ScrapeWebSocketLink();
-            getWebSocketLink.execute(getString(R.string.socket_url));
+            prepareWebSocket();
             timer.setText("Connecting...");
         } else {
             timer.setText(savedInstanceState.getString("timer", "Connecting..."));
             participants.setText(savedInstanceState.getString("participants", ""));
             EventBus.getDefault().post(new SetCurrentColorEvent(savedInstanceState.getInt("currentColor", Color.BLACK)));
         }
-
 
     }
 
@@ -265,38 +260,40 @@ public class MainActivity extends ActionBarActivity {
             enableUpdatesWhenPowerConnectedCheckBox.setChecked(false);
         }
 
-        disableUpdatesIfScreenOffCheckBox.setOnCheckedChangeListener(new CompoundButton.OnCheckedChangeListener() {
-                                                                         @Override
-                                                                         public void onCheckedChanged(CompoundButton buttonView, boolean isChecked) {
-                                                                             if (isChecked) {
-                                                                                 disableUpdates = true;
-                                                                                 enableUpdatesWhenPowerConnectedCheckBox.setVisibility(View.VISIBLE);
-                                                                                 prefs.edit().putBoolean("disable", true).apply();
-                                                                             } else {
-                                                                                 disableUpdates = false;
-                                                                                 enableUpdatesWhenPowerConnectedCheckBox.setVisibility(View.GONE);
-                                                                                 if (enableUpdatesWhenPowerConnectedCheckBox.isChecked()) {
-                                                                                     enableUpdatesWhenPowerConnectedCheckBox.setChecked(false);
-                                                                                 }
-                                                                                 prefs.edit().putBoolean("disable", false).apply();
-                                                                             }
-                                                                         }
-                                                                     }
-        );
+        disableUpdatesIfScreenOffCheckBox
+                .setOnCheckedChangeListener(new CompoundButton.OnCheckedChangeListener() {
+                                                @Override
+                                                public void onCheckedChanged(CompoundButton buttonView, boolean isChecked) {
+                                                    if (isChecked) {
+                                                        disableUpdates = true;
+                                                        enableUpdatesWhenPowerConnectedCheckBox.setVisibility(View.VISIBLE);
+                                                        prefs.edit().putBoolean("disable", true).apply();
+                                                    } else {
+                                                        disableUpdates = false;
+                                                        enableUpdatesWhenPowerConnectedCheckBox.setVisibility(View.GONE);
+                                                        if (enableUpdatesWhenPowerConnectedCheckBox.isChecked()) {
+                                                            enableUpdatesWhenPowerConnectedCheckBox.setChecked(false);
+                                                        }
+                                                        prefs.edit().putBoolean("disable", false).apply();
+                                                    }
+                                                }
+                                            }
+                );
 
-        enableUpdatesWhenPowerConnectedCheckBox.setOnCheckedChangeListener(new CompoundButton.OnCheckedChangeListener() {
-                                                                               @Override
-                                                                               public void onCheckedChanged(CompoundButton buttonView, boolean isChecked) {
-                                                                                   if (isChecked) {
-                                                                                       enableUpdatesWhenConnectedToPower = true;
-                                                                                       prefs.edit().putBoolean("enableUpdatesWhenConnectedToPower", true).apply();
-                                                                                   } else {
-                                                                                       enableUpdatesWhenConnectedToPower = false;
-                                                                                       prefs.edit().putBoolean("enableUpdatesWhenConnectedToPower", false).apply();
-                                                                                   }
-                                                                               }
-                                                                           }
-        );
+        enableUpdatesWhenPowerConnectedCheckBox
+                .setOnCheckedChangeListener(new CompoundButton.OnCheckedChangeListener() {
+                                                @Override
+                                                public void onCheckedChanged(CompoundButton buttonView, boolean isChecked) {
+                                                    if (isChecked) {
+                                                        enableUpdatesWhenConnectedToPower = true;
+                                                        prefs.edit().putBoolean("enableUpdatesWhenConnectedToPower", true).apply();
+                                                    } else {
+                                                        enableUpdatesWhenConnectedToPower = false;
+                                                        prefs.edit().putBoolean("enableUpdatesWhenConnectedToPower", false).apply();
+                                                    }
+                                                }
+                                            }
+                );
 
     }
 
@@ -341,6 +338,23 @@ public class MainActivity extends ActionBarActivity {
 
     }
 
+    private void prepareWebSocket() {
+
+        long minute = 1000 * 10;
+        long hour = minute * 60;
+        long twelvehours = hour * 12;
+
+        Long wssLastUpdatedTime = prefs.getLong("wsstimestamp", 0);
+        Long timeDifference = System.currentTimeMillis() - wssLastUpdatedTime;
+
+        if (timeDifference < twelvehours && theButtonURL != null) {
+            initWebSocket();
+        } else {
+            ScrapeWebSocketLink getWebSocketLink = new ScrapeWebSocketLink(client,notificationId);
+            getWebSocketLink.execute(getString(R.string.socket_url));
+        }
+    }
+
 
     @Override
     public boolean onCreateOptionsMenu(Menu menu) {
@@ -368,76 +382,6 @@ public class MainActivity extends ActionBarActivity {
     }
 
 
-    private class ScrapeWebSocketLink extends AsyncTask<String, Void, String> {
-
-        @Override
-        protected String doInBackground(String... urls) {
-
-            long minute = 1000 * 10;
-            long hour = minute * 60;
-            long twelvehours = hour * 12;
-
-            String responseString = "";
-
-            Long wssLastUpdatedTime = prefs.getLong("wsstimestamp", 0);
-            Long timeDifference = System.currentTimeMillis() - wssLastUpdatedTime;
-
-            if (timeDifference < twelvehours && theButtonURL != null) {
-                return theButtonURL.toString();
-            } else {
-                try {
-
-                    //Special thanks to https://github.com/artganify for the connection data that reddit doesn't block as a bot.
-                    Request request = new Request.Builder()
-                            .url(urls[0])
-                            .addHeader("Accept", "text/html")
-                            .addHeader("User-Agent", "TheButtonForReddit/" + notificationId)
-                            .addHeader("Accept-Language", "en-US;q=0.6,en;q=0.4")
-                            .addHeader("Host", "www.reddit.com")
-                            .addHeader("Connection", "keep-alive")
-                            .build();
-
-                    Response response = client.newCall(request).execute();
-                    responseString = response.body().string();
-
-                    String startLookup = "wss://";
-                    String endLookup = "\"";
-                    String part = responseString.substring(responseString.indexOf(startLookup));
-                    String uri = part.substring(0, part.indexOf(endLookup));
-
-                    prefs.edit().putLong("wsstimestamp", System.currentTimeMillis()).apply();
-                    prefs.edit().putString("wsslink", uri).apply();
-
-                    return uri;
-
-                } catch (IOException e) {
-                    Crashlytics.logException(e);
-                } catch (Exception e){
-                    Crashlytics.log(responseString);
-                    Crashlytics.logException(e);
-
-                }
-            }
-
-            return "error";
-        }
-
-        @Override
-        protected void onPostExecute(String result) {
-            if (!result.equals("error")) {
-                try {
-                    theButtonURL = URI.create(result);
-                    initWebSocket();
-                } catch (Exception e) {
-                    Crashlytics.logException(e);
-                    timer.setText(getString(R.string.cannot_get_socket_link));
-                }
-            } else {
-                timer.setText(getString(R.string.cannot_get_socket_link));
-            }
-        }
-    }
-
     /*
      *  This is to get the results from the ring tone selection.
      */
@@ -455,6 +399,21 @@ public class MainActivity extends ActionBarActivity {
 
             }
         }
+    }
+
+    public void onEventMainThread(GetWebSocketLinkCompleteEvent event) {
+
+        theButtonURL = event.getWebSocketLink();
+        prefs.edit().putLong("wsstimestamp", System.currentTimeMillis()).apply();
+        prefs.edit().putString("wsslink", String.valueOf(theButtonURL)).apply();
+        initWebSocket();
+
+    }
+
+    public void onEventMainThread(GetWebSocketLinkFailureEvent event) {
+
+        timer.setText(getString(R.string.cannot_get_socket_link));
+
     }
 
     private void initWebSocket() {
@@ -569,8 +528,7 @@ public class MainActivity extends ActionBarActivity {
                     if (disableUpdates) {
                         shutDownSocket = false;
                         fullShutDown = false;
-                        ScrapeWebSocketLink task = new ScrapeWebSocketLink();
-                        task.execute(getString(R.string.socket_url));
+                        prepareWebSocket();
                     }
                     break;
 
@@ -609,8 +567,7 @@ public class MainActivity extends ActionBarActivity {
 
         if (event.isConnected()) {
             timer.setText(getString(R.string.connecting));
-            ScrapeWebSocketLink task = new ScrapeWebSocketLink();
-            task.execute(getString(R.string.socket_url));
+            prepareWebSocket();
         } else {
             timer.setText(getString(R.string.disconnected));
         }
